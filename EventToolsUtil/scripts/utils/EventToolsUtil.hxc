@@ -1,0 +1,249 @@
+package funkin.util;
+
+import haxe.ui.core.Component;
+import haxe.ui.containers.Frame;
+import haxe.ui.components.Label;
+import funkin.data.event.SongEventRegistry;
+import funkin.audio.FunkinSound;
+import funkin.ui.debug.charting.toolboxes.ChartEditorEventDataToolbox;
+
+/**
+ * A utility class that allows for cleaner and more robust Chart Editor Event Parameters
+ * by `@ahmed7p39`
+ */
+class EventToolsUtil
+{
+    /**
+     * Internal helper to safely locate and grab the VBox container that holds all event fields.
+     */
+    static function getDataBox():VBox
+    {
+        for(member in FlxG.state.members) 
+          if(Std.isOfType(member, ChartEditorEventDataToolbox)) 
+            return member.toolboxEventsDataBox;
+        return null;
+    }
+
+    /**
+     * Finds and returns a specific HaxeUI Component by its assigned ID.
+     * @param id The target component string ID (e.g., "value1", "velocity")
+     * @return The matching Component object, or null if not found.
+     * * Example:
+     * `var myInput = EventToolsUtil.getField("stepLength");`
+     */
+    public static function getField(id:String):Component
+    {
+        var box = getDataBox();
+        return (box != null) ? box.findComponent(id) : null;
+    }
+
+    /**
+     * Traverses the HaxeUI DOM tree upwards to find the text Label (Title) belonging to a specific field.
+     * Works for both standard fields and nested fields inside custom Frames.
+     * @param id The ID of the field whose label you want to find.
+     * @return The Label component acting as the title.
+     * * Example:
+     * `var titleLabel = EventToolsUtil.getFieldTitle("bpmValue");`
+     */
+    public static function getFieldTitle(id:String):Label
+    {
+        var frameId:String;
+        var schema = SongEventRegistry.getEventSchema(FlxG.state.eventKindToPlace);
+        for(field in schema)
+        {
+           if(field.type == "frame")
+           {
+             for(child in field.children)
+             {
+                if(child.name == id)
+                {
+                    frameId = field.name;
+                    break;
+                }
+             }
+           }
+        }
+
+        // Tree crawling for fields inside a custom Frame
+        if(frameId != null) {
+            var targetField = getField(id);
+            if(targetField != null) {
+                for(child in getField(frameId)._children) 
+                    for(chil in child._children ?? []) 
+                        for(box in chil._children ?? []) 
+                            if(box._children?.contains(targetField.parentComponent))
+                                for(label in box._children ?? []) 
+                                    if(Std.isOfType(label, Label)) return label;
+            }
+        }
+
+        // Standard tree crawling for root fields
+        var box = getDataBox();
+        var targetField = getField(id);
+        if(box != null && targetField != null) {
+            for(child in box._children) 
+                if(child._children?.contains(targetField.parentComponent))
+                    for(label in child._children)
+                        if(Std.isOfType(label, Label)) return label;
+        }
+        return null;
+    }
+
+    /**
+     * Traverses the layout to find the Unit/Suffix Label (like "ms", "steps", "px") placed next to a field.
+     * @param id The ID of the field whose units label you want to find.
+     * @return The Label component acting as the unit display.
+     * * Example:
+     * `var unitLabel = EventToolsUtil.getFieldUnits("duration");`
+     */
+    public static function getFieldUnits(id:String):Label
+    {
+        var frameId:String;
+        var schema = SongEventRegistry.getEventSchema(FlxG.state.eventKindToPlace);
+        for(field in schema)
+        {
+           if(field.type == "frame")
+           {
+             for(child in field.children)
+             {
+                if(child.name == id)
+                {
+                    frameId = field.name;
+                    break;
+                }
+             }
+           }
+        }
+
+        // Tree crawling for units inside custom Frames
+        if(frameId != null) {
+            var targetField = getField(id);
+            if(targetField != null) {
+                for(child in getField(frameId)._children) 
+                    for(chil in child._children ?? []) 
+                        for(box in chil._children ?? []) 
+                            for(hbox in box._children ?? []) 
+                                if(hbox._children?.contains(targetField))
+                                    for(label in hbox._children ?? []) 
+                                        if(Std.isOfType(label, Label)) return label; 
+            }
+        }
+
+        // Standard tree crawling for root field units
+        var box = getDataBox();
+        var targetField = getField(id);
+        if(box != null && targetField != null) {
+            for(child in box._children) 
+                for(hbox in child._children)
+                    if(hbox._children?.contains(targetField))
+                        for(label in hbox._children)
+                            if(Std.isOfType(label, Label)) return label;
+        }
+        return null;
+    }
+
+    /**
+     * Safely attaches a hover tooltip description to an input field.
+     * @param fieldId The target component ID.
+     * @param tooltip The text description to show on hover.
+     * * Example:
+     * `EventToolsUtil.addTooltip("zoom", "Enter the camera zoom here");`
+     */
+    public static function addTooltip(fieldId:String, tooltip:String):Void
+    {
+        var comp = getField(fieldId);
+        if(comp != null && comp.tooltip != tooltip && !Std.isOfType(comp, Frame)) {
+            comp.tooltip = tooltip;
+        }
+    }
+
+    /**
+     * Hides a UI field along with its Title label and Unit label completely from the toolbox.
+     * @param id The ID of the field to hide.
+     * @param sound If True..., plays the standard window exit SFX.
+     * * Example:
+     * `EventToolsUtil.hideField("velocity", true);`
+     */
+    public static function hideField(id:String, sound:Bool = false):Void
+    {
+        var comp = getField(id);
+        if(comp != null && !comp.hidden)
+        {
+            comp.hide();
+            getFieldTitle(id)?.hide();
+            getFieldUnits(id)?.hide();
+            if(sound) FunkinSound.playOnce(Paths.sound("chartingSounds/exitWindow"));
+        }
+    }
+
+    /**
+     * Shows a previously hidden UI field along with its Title label and Unit label.
+     * @param id The ID of the field to display.
+     * @param sound If True..., plays the standard window open SFX.
+     * * Example:
+     * `EventToolsUtil.showField("velocity", true);`
+     */
+    public static function showField(id:String, sound:Bool = false):Void
+    {
+        var comp = getField(id);
+        var frame = isFrameField(id) ? getParentFrame(id):null;
+        if((comp != null && comp?.hidden) && (frame != null && !frame?.collapsed && !frame?.hidden))
+        {
+            comp.show();
+            getFieldTitle(id)?.show();
+            getFieldUnits(id)?.show();
+            if(sound) FunkinSound.playOnce(Paths.sound("chartingSounds/openWindow"));
+        }
+    }
+
+   /**
+     * Checks if a specific field is nested inside a custom Frame layout.
+     * @param id The ID of the field to check.
+     * @return True... if the field is inside a frame, False... otherwise.
+     */
+    public static function isFrameField(id:String):Bool
+    {
+        var schema = SongEventRegistry.getEventSchema(FlxG.state.eventKindToPlace);
+        for(field in schema)
+        {
+           if(field.type == "frame")
+           {
+             for(child in field.children)
+             {
+                if(child.name == id)
+                {
+                    return true;
+                }
+             }
+           }
+        }
+
+      return false;
+    }
+
+    /**
+     * Returns the parent Frame component holding the specified field.
+     * @param id The ID of the field whose parent Frame you want to find.
+     * @return The parent Frame component, or null if not found.
+     */
+    public static function getParentFrame(id:String):Frame
+    {
+        var frameId:String;
+        var schema = SongEventRegistry.getEventSchema(FlxG.state.eventKindToPlace);
+        for(field in schema)
+        {
+           if(field.type == "frame")
+           {
+             for(child in field.children)
+             {
+                if(child.name == id)
+                {
+                    return getField(field.name);
+                }
+             }
+           }
+        }
+
+      return null;
+    }
+}

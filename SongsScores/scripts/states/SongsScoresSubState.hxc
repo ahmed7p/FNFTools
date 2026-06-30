@@ -1,0 +1,331 @@
+import funkin.data.song.SongRegistry;
+import funkin.ui.MusicBeatSubState;
+import funkin.InitState;
+import funkin.graphics.FunkinCamera;
+import funkin.audio.FunkinSound;
+import funkin.input.Cursor;
+import flixel.FlxSprite;
+import funkin.util.SortUtil;
+import funkin.ui.Prompt;
+import funkin.ui.ButtonStyle;
+import funkin.util.SaveScoreUtil;
+import haxe.ui.components.DropDown;
+import haxe.ui.components.Label;
+import haxe.ui.data.ArrayDataSource;
+import haxe.ui.components.Button;
+import funkin.util.tools.StringTools;
+import funkin.ui.debug.charting.ChartEditorState;
+import funkin.ui.debug.charting.handlers.ChartEditorNotificationHandler;
+using StringTools;
+
+class SongsScoresSubState extends MusicBeatSubState
+{
+    public var id:String = "SongsScores";
+
+    var ssCamera:FunkinCamera;
+
+    var prompt:Prompt;
+
+    var songsDropDown:DropDown;
+    var variationDropDown:DropDown;
+    var diffDropDown:DropDown;
+
+    var undoButton:Button;
+
+    var lastSong:String = "";
+    var lastVariation:String = "";
+    var lastDifficulty:String = "";
+
+    var songsList:Array<String> = [];
+
+    public function new()
+    {
+        super(0x80000000);
+    }
+
+    override function create()
+    {
+        FunkinSound.playOnce(Paths.sound("chartingSounds/openWindow"));
+        Cursor.show();
+        var state = new ChartEditorState();
+        _parentState.persistentUpdate = false;
+        ssCamera = new FunkinCamera("SongsScores");
+        FlxG.cameras.add(ssCamera, false);
+        ssCamera.bgColor = 0x0;
+        ssCamera.zoom += 0;
+        var window = new FlxSprite().makeGraphic(400, 300, 0xFF3C3F40);
+        window.screenCenter();
+        window.camera = ssCamera;
+        add(window);
+        songsDropDown = new DropDown();
+        songsDropDown.id = "songs";
+        songsDropDown.width = 400;
+        songsDropDown.dropdownSize = 10;
+        songsDropDown.dropdownWidth = 400;
+        songsDropDown.searchable = true;
+        songsDropDown.tooltip = "Select the song you want to reset scores for.";
+        songsDropDown.dataSource = new ArrayDataSource();
+        songsDropDown.camera = ssCamera;
+        songsDropDown.screenCenter();
+        songsDropDown.y -= 120;
+        for(song in SongRegistry.instance.listEntryIds().filter(entry -> return SongRegistry.instance.fetchEntry(entry) != null)) songsDropDown.dataSource.add({value: song, text: SongRegistry.instance.fetchEntry(song)?.songName ?? "UNKNOWN"});
+        songsDropDown.dataSource._array.sort((a, b) -> SortUtil.alphabetically(a, b));
+        songsDropDown.value = songsDropDown.dataSource._array[0];
+        lastSong = songsDropDown.value;
+        add(songsDropDown);
+    var dropLabel:Label = new Label();
+        dropLabel.text = "Song Name";
+        dropLabel.verticalAlign = 'left';
+        dropLabel.percentWidth = 50;
+        dropLabel.fontSize = 16;
+        dropLabel.camera = ssCamera;
+        dropLabel.screenCenter();
+        dropLabel.x -= 195;
+        dropLabel.y -= 140;
+        add(dropLabel);
+        variationDropDown = new DropDown();
+        variationDropDown.id = "variations";
+        variationDropDown.width = 400;
+        variationDropDown.dropdownSize = 10;
+        variationDropDown.dropdownWidth = 400;
+        variationDropDown.tooltip = "Choose the song variation (e.g., Default, Erect, or custom remixes).";
+        variationDropDown.dataSource = new ArrayDataSource();
+        variationDropDown.camera = ssCamera;
+        variationDropDown.screenCenter();
+        variationDropDown.y -= 65;
+        for(variation in SongRegistry.instance.fetchEntry(songsDropDown.value)?.variations ?? ["default"]) variationDropDown.dataSource.add({value: variation, text: StringTools.toTitleCase(variation)});
+        variationDropDown.dataSource._array.sort((a, b) -> SortUtil.defaultThenAlphabetically("default", a, b));
+        variationDropDown.value = "default";
+        lastVariation = variationDropDown.value;
+        add(variationDropDown);
+        var variationDropLabel:Label = new Label();
+        variationDropLabel.text = "Variation";
+        variationDropLabel.verticalAlign = 'left';
+        variationDropLabel.percentWidth = 50;
+        variationDropLabel.fontSize = 16;
+        variationDropLabel.camera = ssCamera;
+        variationDropLabel.screenCenter();
+        variationDropLabel.x -= 195;
+        variationDropLabel.y -= 83;
+        add(variationDropLabel);
+        diffDropDown = new DropDown();
+        diffDropDown.id = "variations";
+        diffDropDown.width = 400;
+        diffDropDown.dropdownSize = 10;
+        diffDropDown.dropdownWidth = 400;
+        diffDropDown.tooltip = "Select a specific difficulty tier, or choose 'All' to target everything.";
+        diffDropDown.dataSource = new ArrayDataSource();
+        diffDropDown.camera = ssCamera;
+        diffDropDown.screenCenter();
+        diffDropDown.y -= 10;
+        for(diff in SongRegistry.instance.fetchEntry(songsDropDown.value)?.listDifficulties(variationDropDown.value, null, null) ?? ["normal"]) diffDropDown.dataSource.add({value: diff, text: StringTools.toTitleCase(diff)});
+        if(diffDropDown.dataSource._array.length > 1) diffDropDown.dataSource.add({value: "all", text: "All"});
+        add(diffDropDown);
+        var diffDropLabel:Label = new Label();
+        diffDropLabel.text = "Difficulty";
+        diffDropLabel.verticalAlign = 'left';
+        diffDropLabel.percentWidth = 50;
+        diffDropLabel.fontSize = 16;
+        diffDropLabel.camera = ssCamera;
+        diffDropLabel.screenCenter();
+        diffDropLabel.x -= 195;
+        diffDropLabel.y -= 30;
+        add(diffDropLabel);
+    var button = new Button();
+        button.text = "Add Song";
+        button.fontSize = 20;
+        button.tooltip = "Add the selected song, variation, and difficulty combination to the tracking list.";
+        button.onClick = () -> addSong();
+        button.screenCenter();
+        button.x -= 198;
+        button.y += 50;
+        add(button);
+
+    var applyButton = new Button();
+        applyButton.text = "Apply";
+        applyButton.onClick = () -> applyChanges();
+        applyButton.screenCenter();
+        applyButton.tooltip = "Save and apply all changes to the score manager.";
+        applyButton.x += 108;
+        applyButton.y += 50;
+        applyButton.fontSize = 21;
+        add(applyButton);
+
+        undoButton = new Button();
+        undoButton.text = "Undo";
+        undoButton.tooltip = "Remove the last added song configuration from the current list.";
+        undoButton.onClick = () -> removeSong();
+        undoButton.screenCenter();
+        undoButton.x -= 40;
+        undoButton.y += 100;
+        undoButton.fontSize = 21;
+        undoButton.hide();
+        add(undoButton);
+        super.create();
+    }
+
+    override public function update(elapsed:Float)
+    {
+        super.update(elapsed);
+        if(FlxG.keys.justPressed.ESCAPE) 
+        if(prompt == null) goBack();
+        else 
+        {
+            Cursor.show();
+            prompt.close();
+            prompt.destroy();
+            prompt = null;
+        }
+
+        if(songsList.length > 0 && prompt == null)
+        {
+            if(undoButton._hidden)
+            undoButton.show();
+        }
+        else
+        {
+            if(!undoButton._hidden)
+            undoButton.hide();
+        }
+
+        if(lastSong != songsDropDown.value?.value ?? songsDropDown.value)
+        {
+            lastSong = songsDropDown.value?.value ?? songsDropDown.value;
+            variationDropDown.dataSource.clear();
+            for(variation in SongRegistry.instance.fetchEntry(lastSong)?.variations ?? ["default"]) 
+            {
+                variationDropDown.dataSource.add({value: variation, text: StringTools.toTitleCase(variation)});
+            }
+            variationDropDown.dataSource._array.sort((a, b) -> SortUtil.defaultThenAlphabetically("default", a, b));
+            variationDropDown.value = "default";
+            diffDropDown.dataSource.clear();
+            for(diff in SongRegistry.instance.fetchEntry(lastSong)?.listDifficulties(variationDropDown.value?.value ?? variationDropDown.value, null, null) ?? ["normal"]) 
+            {
+              diffDropDown.dataSource.add({value: diff, text: StringTools.toTitleCase(diff)});
+              diffDropDown.value = diff;
+            }
+            diffDropDown.dataSource.add({value: "all", text: "All"});
+        }
+
+        if(lastVariation != variationDropDown.value?.value ?? variationDropDown.value)
+        {
+            lastVariation = variationDropDown.value?.value ?? variationDropDown.value;
+            diffDropDown.dataSource.clear();
+            for(diff in SongRegistry.instance.fetchEntry(songsDropDown.value.value)?.listDifficulties(variationDropDown.value.value, null, null) ?? ["normal"]) 
+            {
+              diffDropDown.dataSource.add({value: diff, text: StringTools.toTitleCase(diff)});
+              diffDropDown.value = diff;
+            }
+            if(diffDropDown.dataSource._array.length > 1) diffDropDown.dataSource.add({value: "all", text: "All"});
+        }
+
+        if(lastDifficulty != diffDropDown.value?.value ?? diffDropDown.value)
+        {
+            lastDifficulty = diffDropDown.value?.value ?? diffDropDown.value;
+        }
+    }
+
+    function addSong()
+    {
+        if(prompt != null) return;
+        if(songsList.contains('$lastSong:$lastVariation:$lastDifficulty'))
+        {
+            FunkinSound.playOnce(Paths.sound("chartingSounds/ClickUp"));
+            ChartEditorNotificationHandler.warning(this, 'Added Song', 'Song already added');
+        }
+        else
+        {
+            FunkinSound.playOnce(Paths.sound("chartingSounds/ClickDown"));
+            ChartEditorNotificationHandler.success(this, 'Added Song', 'Added Song(${SongRegistry.instance.fetchEntry(lastSong).getDifficulty(null, lastVariation).songName}, ${StringTools.toTitleCase(lastDifficulty)})');
+            songsList.push('$lastSong:$lastVariation:$lastDifficulty');
+        }
+    }
+
+    function removeSong()
+    {
+        if(prompt != null) return;
+        FunkinSound.playOnce(Paths.sound('cancelMenu'));
+        var splitList = songsList[songsList.length - 1].split(':');
+        var name = splitList[0];
+        var variation = splitList[1];
+        var diff = splitList[2];
+        ChartEditorNotificationHandler.info(this, 'Removed Song', 'Removed Song(${SongRegistry.instance.fetchEntry(name).getDifficulty(null, variation).songName}, ${StringTools.toTitleCase(diff)})');
+        songsList.remove(songsList[songsList.length - 1]);
+    }
+
+    function applyChanges()
+    {
+        if(prompt != null) return;
+        if(songsList.length < 1)
+        {
+            FunkinSound.playOnce(Paths.sound("chartingSounds/ClickUp"));
+            ChartEditorNotificationHandler.error(this, "Failed Applying", "Failed Applying(Songs list is empty u can't apply for nothing)");
+            return;
+        }
+        FunkinSound.playOnce(Paths.sound("chartingSounds/ClickDown"));
+        openConfirmPrompt("Are you sure to remove \n     the songs score", "Confirm", () -> confirmChanges());
+    }
+
+    function confirmChanges()
+    {
+        for(song in songsList)
+        {
+            var difficultyList:Array<String>;
+            var splitList = song.split(':');
+            var name = splitList[0];
+            var variation = splitList[1];
+            var difficulty = splitList[2];
+            if(difficulty == "all")
+                difficultyList = SongRegistry.instance.listDifficulties(name, variation);
+
+            if(difficultyList == null)
+            {
+                SaveScoreUtil.resetSongScore(name, difficulty, variation);
+            } 
+            else
+            {
+                for(diff in difficultyList)
+                {
+                    SaveScoreUtil.resetSongScore(name, diff, variation);
+                }
+            }   
+        }
+        var init = new InitState();
+        ChartEditorNotificationHandler.info(init, "Success", "Scores Removed Successful");
+        FlxG.switchState(() -> init);
+    }
+
+    function openConfirmPrompt(text:String, yesText:String, onYes:Void->Void):Void
+    {
+        Cursor.hide();
+        if (prompt != null) return;
+
+        prompt = new Prompt(text, ButtonStyle.Custom(yesText, "Cancel"));
+        prompt.create();
+        prompt.createBgFromMargin(100, 0xFFFAFD6D);
+        prompt.back.scrollFactor.set(0, 0);
+        prompt.back.camera = ssCamera;
+        prompt.field.camera = ssCamera;
+        prompt.buttons.camera = ssCamera;
+        add(prompt);
+
+        prompt.onYes = function()
+        {
+        onYes();
+        };
+
+        prompt.onNo = function()
+        {
+        Cursor.show();
+        prompt.close();
+        prompt.destroy();
+        prompt = null;
+        }
+    }
+
+    function goBack()
+    {
+        FunkinSound.playOnce(Paths.sound("chartingSounds/exitWindow"));
+        close();
+    }
+}

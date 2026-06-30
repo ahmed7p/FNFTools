@@ -1,0 +1,46 @@
+import funkin.modding.module.Module;
+import funkin.ui.options.OptionsState;
+import funkin.ui.options.PreferencesMenu;
+import funkin.input.Cursor;
+
+class SongsScoresOptionMenu extends Module {
+
+    public function new() {
+        super('SongsScoresOptionMenu');
+    }
+
+    public function onStateChangeEnd(event):Void {
+        super.onStateChangeEnd(event);
+        
+        if (Std.isOfType(event.targetState, OptionsState)) {
+            final state:OptionsState = OptionsState.instance;
+            var optionspage = state.optionsCodex.pages.get("options");
+            var exit = optionspage.items.getItem("EXIT");
+            var sumPage = optionspage.createItem("SONG SCORE OPTIONS", () -> state.openSubState(new SongsScoresSubState()));
+
+            if (exit != null)
+            {
+                optionspage.items.members.remove(sumPage);
+                optionspage.items.members.insert(optionspage.items.members.indexOf(exit), sumPage);
+            }
+            for (i in 0...optionspage.items.members.length)
+            {
+                var item = optionspage.items.members[i];
+                item.y = 100 + i * 100;
+            }
+        }
+    }
+
+    public function onStateChangeBegin(event)
+    {
+        if(event.eventCanceled || FlxG.state?.subState?.id != "SongsScores") return;
+        Cursor.hide();
+    }
+
+    public function onSubStateCloseBegin(event)
+    {
+        if(event.eventCanceled || event.targetState?.id != "SongsScores") return;
+        Cursor.hide();
+    }
+
+}

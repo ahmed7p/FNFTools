@@ -1,0 +1,17 @@
+{
+  "title": "VariationsOnPauseMenu",
+  "description": "Adding Change Variation In The Pause Menu",
+  "contributors": [
+    {
+      "name": "Ahmed7p39",
+      "role": "Programmer"
+    },
+    {
+      "name": "That0neIdiot",
+      "role": "mod thumbline"
+    }
+  ],
+  "api_version": "0.8.0",
+  "mod_version": "1.0.0",
+  "license": "Apache-2.0"
+}

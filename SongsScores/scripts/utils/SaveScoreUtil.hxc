@@ -1,0 +1,126 @@
+package funkin.util;
+import flixel.util.FlxSave;
+import funkin.save.Save;
+import funkin.play.scoring.Scoring;
+
+/**
+ * Utility class for managing scores and ranks in the local save data.
+ * Handles binding, saving, and resetting high scores.
+ */
+class SaveScoreUtil
+{
+    /**
+     * The internal FlxSave object used to store score data.
+     */
+    static var save:FlxSave = null;
+
+    /**
+     * Initializes the save file if it hasn't been created yet.
+     * Binds to "Funkin1" under the "FunkinCrew" path.
+     */
+    public static function makeTheSave():Void
+    {   
+        if (save != null) return;
+        save = new FlxSave();
+        save.bind("Funkin1", "FunkinCrew");
+    }
+    
+    /**
+     * Applies a new score for a specific song and difficulty.
+     * @param songId The unique ID of the song.
+     * @param difficultyId The ID of the difficulty (e.g., 'hard', 'erect').
+     * @param score The score data object to be saved.
+     * @param force If true, bypasses the highscore check and saves immediately.
+     */
+    public static function applySongScore(songId:String, difficultyId:String, score:SaveScoreData, force:Bool = false):Void
+    {
+        // Check if the new score is higher than the existing one unless forced
+        if (!Save.instance.isSongHighScore(songId, difficultyId, score) && !force) return;
+
+        if (save == null) makeTheSave();
+                 
+        var song = save.data.scores.songs.get(songId);
+        if (song == null)
+        {
+            song = [];
+            save.data.scores.set(songId, song);
+        }
+
+        song.set(difficultyId, score);
+        save.flush(); // Commit changes to disk
+    }
+    
+    /**
+     * Compares and updates ranking data for a song. 
+     * It ensures that the best score and best rank are preserved independently.
+     * @param songId The unique ID of the song.
+     * @param difficultyId  The ID of the difficulty.
+     * @param newScoreData  The fresh score data from the current play session.
+     */
+    public static function applySongRank(songId:String, difficultyId:String, newScoreData:SaveScoreData):Void
+    {
+        if (save == null) makeTheSave();
+
+        var newRank = Scoring.calculateRank(newScoreData);
+        if (newScoreData == null || newRank == null) return;
+
+        var song = save.data.scores.songs.get(songId);
+        if (song == null)
+        {
+            song = [];
+            save.data.scores.songs.set(songId, song);
+        }
+
+        var previousScoreData = song.get(difficultyId);
+        var previousRank = Scoring.calculateRank(previousScoreData);
+
+        if (previousScoreData == null || previousRank == null)
+        {
+            // If no previous data exists, set this as the highscore
+            applySongScore(songId, difficultyId, newScoreData, true);
+            return;
+        }
+
+        // Create a merged score data keeping the best of both worlds
+        var newScore:SaveScoreData = {
+            score: (previousScoreData.score > newScoreData.score) ? previousScoreData.score : newScoreData.score,
+            tallies: (previousRank > newRank
+                || Scoring.tallyCompletion(previousScoreData.tallies) > Scoring.tallyCompletion(newScoreData.tallies)) 
+                ? previousScoreData.tallies : newScoreData.tallies
+        };
+
+        song.set(difficultyId, newScore);
+        save.flush();
+    }
+
+    /**
+     * Resets score data. Can clear an entire song or a specific difficulty.
+     * @param songId The ID of the song to reset.
+     * @param difficultyId  (Optional) The specific difficulty to clear. If null, clears the whole song.
+     * @param variationId  (Optional) The specific variation to clear.
+     */
+    public static function resetSongScore(songId:String, ?difficultyId:String, ?variationId:String):Void
+    {
+        if (save == null) makeTheSave();
+        
+        var songs = save.data.scores.songs;
+        
+        if (difficultyId == null)
+        {
+            // Remove the entire song entry
+            if (songs.exists(songId)) songs.remove(songId);
+        }
+        else
+        {
+            // Remove only the specified difficulty
+            if (variationId != null && variationId != '' && variationId != 'default' && variationId != 'erect')
+                difficultyId = '${difficultyId}-${variationId}';
+            
+            var song = save.data.scores.songs.get(songId);
+            if (song == null) return;
+            if (song.exists(difficultyId)) song.remove(difficultyId);
+        }
+        
+        save.flush();
+    }
+}

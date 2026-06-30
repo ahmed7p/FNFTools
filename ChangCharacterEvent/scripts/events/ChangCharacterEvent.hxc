@@ -1,0 +1,343 @@
+//Coded By ahmed7p39 :) 
+import funkin.play.character.CharacterDataParser;
+import funkin.play.character.CharacterType;
+import funkin.play.character.BaseCharacter;
+import funkin.play.character.SparrowCharacter;
+import funkin.play.character.MultiSparrowCharacter;
+import funkin.play.character.AnimateAtlasCharacter;
+import funkin.play.character.MultiAnimateAtlasCharacter;
+import funkin.play.character.PackerCharacter;
+import funkin.modding.events.ScriptEventDispatcher;
+import funkin.modding.events.ScriptEvent;
+import funkin.modding.module.Module;
+import funkin.modding.module.ModuleHandler;
+import funkin.play.song.Song;
+import funkin.play.PlayState;
+import flixel.math.FlxPoint;
+import funkin.data.stage.StageData;
+import funkin.util.FlxTweenUtil;
+import flixel.tweens.FlxEase;
+import flixel.tweens.FlxTween;
+import funkin.play.event.SongEvent;
+import funkin.data.character.CharacterDataParser;
+import haxe.ds.StringMap;
+import Reflect;
+using StringTools;
+
+//--------------------------------------
+// ChangeCharactersEvent
+//--------------------------------------
+class ChangeCharactersEvent extends SongEvent {
+    public function new() {
+        super("ChangeCharacters");
+    }
+
+    public override function handleEvent(data:Dynamic) { 
+        var char     = (data.getString("character") != null) ? data.getString("character") : "bf";
+        var nChar    = (data.getString("newchar") != null) ? data.getString("newchar") : "bf";
+        var icon     = (data.getBool("changeIcon") != null) ? data.getBool("changeIcon") : true;
+        var script   = (data.getBool("script") != null) ? data.getBool("script") : true;
+        var posX     = (data.getFloat("x") != null) ? data.getFloat("x") : 0;
+        var posY     = (data.getFloat("y") != null) ? data.getFloat("y") : 0;
+        var fade     = (data.getBool("fade") != null) ? data.getBool("fade") : false;
+        var fadeTime = (data.getFloat("fadetime") != null) ? data.getFloat("fadetime") : 1;
+        var ease     = (data.getString("ease") != null) ? data.getString("ease") : "linear";
+        var easeDir  = (data.getString("easeDir") != null) ? data.getString("easeDir") : "In";
+
+        var easeFunctionName = (ease == "linear") ? "linear" : '${ease}$easeDir';
+        var easeFunction:Null<Float->Float> = Reflect.field(FlxEase, easeFunctionName);
+        if (easeFunction == null) {
+            trace('Invalid ease function: $easeFunctionName');
+            easeFunction = FlxEase.linear;
+        }
+
+        ModuleHandler.getModule("ChangeCharactersModule").changeCharacter({
+            character: char,
+            newChar: nChar,
+            changeIcon: icon,
+            script: script,
+            x: posX,
+            y: posY,
+            fade: fade,
+            fadeTime: fadeTime,
+            ease: easeFunction,
+            easeDir: easeDir,
+            easeName: ease
+        });
+    }
+
+    public function getIconPath() {
+        return "ui/chart-editor/events/ChangeCharacter";
+    }
+
+    public override function getEventSchema() {
+        return [
+            { name:"character", title:"Old Character", defaultValue:"bf", type:"enum",
+              keys:["boyfriend"=>"bf","girlfriend"=>"gf","dad"=>"dad"] },
+            { name:"newchar", title:"New Character", defaultValue:"bf", type:"enum",
+              keys:ModuleHandler.getModule("ChangeCharactersModule").charactersMap },
+            { name:"changeIcon", title:"Change Icon", type:"bool", defaultValue:true },
+            { name:"script", title:"Load Script", type:"bool", defaultValue:true },
+            { name:"x", title:"New Character X", defaultValue:0, type:"float", step:1 },
+            { name:"y", title:"New Character Y", defaultValue:0, type:"float", step:1 },
+            { name:"fade", title:"Fading", type:"bool", defaultValue:false },
+            { name:"fadetime", title:"Fading Time", defaultValue:0.5, type:"float",min:0.1},
+            { name:"ease", title:"Easing Type", defaultValue:"linear", type:"enum",
+              keys:["Linear"=>"linear","Classic (Ignores duration)"=>"CLASSIC","Sine"=>"sine",
+                    "Quad"=>"quad","Cube"=>"cube","Quart"=>"quart","Quint"=>"quint","Expo"=>"expo",
+                    "Smooth Step"=>"smoothStep","Smoother Step"=>"smootherStep","Elastic"=>"elastic",
+                    "Back"=>"back","Bounce"=>"bounce","Circ"=>"circ"] },
+            { name:"easeDir", title:"Easing Direction", defaultValue:"In", type:"enum",
+              keys:["In"=>"In","Out"=>"Out","In/Out"=>"InOut"] }
+        ];
+    }
+
+    public function getTitle() {
+        return "Change Character";
+    }
+}
+
+//--------------------------------------
+// ChangeCharactersModule
+//--------------------------------------
+class ChangeCharactersModule extends Module {
+    public var charactersMap:StringMap<String, String>;
+    var charCache:Map<String, Map<String, BaseCharacter>>;
+    var originPos:Map<String, FlxPoint>;
+    var tweens:Array<FlxTween> = [];
+
+    var types = [
+        "bf"  => CharacterType.BF,
+        "gf"  => CharacterType.GF,
+        "dad" => CharacterType.DAD
+    ];
+
+    function new() {
+        super("ChangeCharactersModule");
+    }
+
+    public override function onCreate(event) {
+        super.onCreate(event);
+        charactersMap = new StringMap();
+        for (characterId in CharacterDataParser.listCharacterIds()) {
+            var data = CharacterDataParser.parseCharacterData(characterId);
+            if (data != null) charactersMap.set(characterId, characterId);
+        }
+    }
+
+    public function changeCharacter(options:ChangeCharacterOptions) {
+        if (PlayState.instance?.currentStage == null) return;
+
+        switch(options.character) {
+            case "bf":  swapChar(PlayState.instance.currentStage.getBoyfriend(), options, "bf");
+            case "gf":  swapChar(PlayState.instance.currentStage.getGirlfriend(), options, "gf");
+            case "dad": swapChar(PlayState.instance.currentStage.getDad(), options, "dad");
+            default:    trace("Unknown character type: " + options.character);
+        }
+    }
+
+    // Swap logic
+    function swapChar(oldChar:BaseCharacter, options:ChangeCharacterOptions, type:String) {
+    if (oldChar.characterId == options.newChar) {
+        trace('Cannot change ${oldChar.characterId} to ${options.newChar} (same character)');
+        return;
+    }
+
+    var newChar = charCache.get(type).get(options.newChar);
+    if (newChar == null) {
+        trace('Character ${options.newChar} not cached for $type');
+        return;
+    }
+
+    if (options.fade) {
+        var player1Ease:FlxEase;
+        if (options.easeDir == "Out")
+            player1Ease = FlxEase.linear;
+        else if (options.easeDir == "InOut")
+            player1Ease = Reflect.field(FlxEase, '${options.easeName}In');
+        else
+            player1Ease = options.ease;
+
+        var tweenPlayer1:FlxTween;
+        var tweenPlayer2:FlxTween;
+
+        tweenPlayer1 = FlxTween.tween(oldChar, {alpha:0}, options.fadeTime, {
+            ease: options.ease,
+            onStart: () -> tweens.push(tweenPlayer1),
+            onComplete: () -> {
+                tweens.remove(tweenPlayer1);
+
+                oldChar.kill();
+                newChar.revive();
+                PlayState.instance.currentStage.addCharacter(newChar, types.get(type));
+
+                newChar.x = originPos.get(type).x - newChar.characterOrigin.x + options.x;
+                newChar.y = originPos.get(type).y - newChar.characterOrigin.y + options.y;
+                newChar.zIndex = oldChar.zIndex;
+                newChar.alpha = 0;
+
+                var player2Ease:FlxEase;
+                if (options.easeDir == "In")
+                    player2Ease = FlxEase.linear;
+                else if (options.easeDir == "InOut")
+                    player2Ease = Reflect.field(FlxEase, '${options.easeName}Out');
+                else
+                    player2Ease = options.ease;
+
+                tweenPlayer2 = FlxTween.tween(newChar, {alpha:1}, options.fadeTime, {
+                    ease: player2Ease,
+                    onStart: () -> tweens.push(tweenPlayer2),
+                    onComplete: () -> tweens.remove(tweenPlayer2)
+                });
+            }
+        });
+    } else {
+        oldChar.kill();
+        newChar.revive();
+        PlayState.instance.currentStage.addCharacter(newChar, types.get(type));
+
+        newChar.x = originPos.get(type).x - newChar.characterOrigin.x + options.x;
+        newChar.y = originPos.get(type).y - newChar.characterOrigin.y + options.y;
+        newChar.zIndex = oldChar.zIndex;
+
+        if (options.changeIcon) newChar.initHealthIcon(type == "dad");
+        PlayState.instance.currentStage.refresh();
+
+        trace('Changed ${oldChar.characterName} to ${newChar.characterName}');
+    }
+}
+
+
+    // Song load
+       public override function onSongLoaded(event) {
+        super.onSongLoaded(event);
+
+        var difficulty = PlayState.instance.currentSong.difficulties
+            .get(PlayState.instance.currentVariation)
+            .get(PlayState.instance.currentDifficulty);
+
+        var player = difficulty.characters.player;
+        var opponent = difficulty.characters.opponent;
+        var girlfriend = difficulty.characters.girlfriend;
+
+        originPos = [
+            "bf"  => PlayState.instance.currentStage.getBoyfriendPosition(),
+            "gf"  => PlayState.instance.currentStage.getGirlfriendPosition(),
+            "dad" => PlayState.instance.currentStage.getDadPosition()
+        ];
+
+        charCache = [
+            "bf"  => [player => PlayState.instance.currentStage.getBoyfriend()],
+            "dad" => [opponent => PlayState.instance.currentStage.getDad()],
+            "gf"  => [girlfriend => PlayState.instance.currentStage.getGirlfriend()]
+        ];
+
+        for (theEvent in event.events) {
+            if (theEvent.eventKind == "ChangeCharacters") {
+                var newCharId = theEvent.getString("newchar");
+                var type      = theEvent.getString("character");
+                var script    = (theEvent.getBool("script") != null) ? theEvent.getBool("script") : true;
+
+                if (CharacterDataParser.listCharacterIds().contains(newCharId)) {
+                    if (!script) {
+                        var newCharData = CharacterDataParser.fetchCharacterData(newCharId);
+                        if (newCharData == null) continue;
+
+                        var newChar:Null<BaseCharacter> = null;
+                        switch(newCharData.renderType) {
+                            case "sparrow":          newChar = new SparrowCharacter(newCharId);
+                            case "multisparrow":     newChar = new MultiSparrowCharacter(newCharId);
+                            case "animateatlas":     newChar = new AnimateAtlasCharacter(newCharId);
+                            case "multianimateatlas":newChar = new MultiAnimateAtlasCharacter(newCharId);
+                            case "packer":           newChar = new PackerCharacter(newCharId);
+                            default:                 newChar = CharacterDataParser.fetchCharacter(newCharId);
+                        }
+
+                        if (newChar == null) continue;
+                        newChar.debug = false;
+                        ScriptEventDispatcher.callEvent(newChar, new ScriptEvent("CREATE"));
+                        charCache.get(type).set(newCharId, newChar);
+
+                    } else {
+                        var newChar = CharacterDataParser.fetchCharacter(newCharId);
+                        charCache.get(type).set(newCharId, newChar);
+                        trace('Cached $newCharId for $type');
+                    }
+                } else {
+                    trace('Unknown Character $newCharId');
+                }
+            }
+        }
+
+        PlayState.instance.currentStage.refresh();
+    }
+
+    override function onPause(event) {
+        super.onPause(event);
+        if (PlayState.instance?.currentStage == null) return;
+
+        for (twn in tweens) if (twn != null) {
+            trace("Disactive character change tween");
+            twn.active = false;
+        }
+    }
+
+    override function onResume(event) {
+        super.onResume();
+        if (PlayState.instance?.currentStage == null) return;
+
+        for (twn in tweens) if (twn != null) {
+            trace("Reactive character change tween");
+            twn.active = true;
+        }
+    }
+
+    override function onSongRetry(event) {
+        super.onSongRetry(event);
+        if (PlayState.instance?.currentStage == null || PlayState.instance?.currentSong == null) return;
+
+        var bf = PlayState.instance.currentStage.getBoyfriend();
+        var gf = PlayState.instance.currentStage.getGirlfriend();
+        var dad = PlayState.instance.currentStage.getDad();
+
+        var difficulty = PlayState.instance.currentSong.difficulties.get(PlayState.instance.currentVariation).get(PlayState.instance.currentDifficulty);
+
+        var player = difficulty.characters.player;
+        var opponent = difficulty.characters.opponent;
+        var girlfriend = difficulty.characters.girlfriend;
+
+        if (bf?.characterId != player) {
+            swapChar(bf, {character:player, newChar:player, changeIcon:true}, "bf");
+        }
+        if (dad?.characterId != opponent) {
+            swapChar(dad, {character:opponent, newChar:opponent, changeIcon:true}, "dad");
+        }
+        if (gf?.characterId != girlfriend) {
+            swapChar(gf, {character:girlfriend, newChar:girlfriend, changeIcon:false}, "gf");
+        }
+    }
+
+    override function onStateChangeBegin(event) {
+        super.onStateChangeBegin(event);
+        if (Std.isOfType(event.targetState, PlayState)) {
+            for (map in charCache) map.clear();
+        }
+    }
+}
+
+//--------------------------------------
+// Typedef
+//--------------------------------------
+typedef ChangeCharacterOptions = {
+    character:String,
+    newChar:String,
+    changeIcon:Bool,
+    ?script:Bool,
+    ?x:Float,
+    ?y:Float,
+    ?fade:Bool,
+    ?fadeTime:Float,
+    ?ease:FlxEase,
+    ?easeDir:String,
+    ?easeName:String
+}

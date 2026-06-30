@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TextureAtlas imagePath="ShowImageEvent.png">
+	<SubTexture name="ShowImageEvent0001" x="0" y="0" width="307" height="292" />
+</TextureAtlas>

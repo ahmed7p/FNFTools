@@ -1,0 +1,60 @@
+import funkin.modding.module.Module;
+import funkin.ui.debug.charting.ChartEditorState;
+import funkin.util.EventToolsUtil;
+
+class EventToolsUtilExample extends Module {
+
+    public function new() {
+        super('EventToolsUtilExample', null, {state:ChartEditorState});
+    }
+
+    var lastEventKind:String = "";
+    function onUpdate(event)
+    {
+        if(EventToolsUtil.getDataBox() == null) return;
+        if(lastEventKind != FlxG.state.eventKindToPlace)
+        {
+            lastEventKind = FlxG.state.eventKindToPlace;
+            if(lastEventKind == "FocusCamera")
+            {
+                EventToolsUtil.addTooltip("char", "Choose who or what the camera should focus on.");
+                EventToolsUtil.addTooltip("x", "Horizontal shift in pixels. Positive moves right, negative moves left.");
+                EventToolsUtil.addTooltip("y", "Vertical shift in pixels. Positive moves down, negative moves up.");
+                EventToolsUtil.addTooltip("duration", "How long the movement takes to complete (measured in steps).");
+                EventToolsUtil.addTooltip("ease", "The mathematical curve style used for the transition speed.");
+                EventToolsUtil.addTooltip("easeDir", "Controls where the easing interpolation is applied (Start, End, or Both).");
+
+                var ease = EventToolsUtil.getField("ease")?.value?.value ?? EventToolsUtil.getField("ease")?.value;
+                if(ease == "CLASSIC" || ease == "INSTANT") {
+                    EventToolsUtil.hideField("duration");
+                    EventToolsUtil.hideField("easeDir");
+                } else if (ease == "linear") {
+                    EventToolsUtil.hideField("easeDir");
+                    EventToolsUtil.showField("duration");
+                } else {
+                    EventToolsUtil.showField("easeDir");
+                    EventToolsUtil.showField("duration");
+                }
+            }
+        }
+
+        if(lastEventKind == "FocusCamera") {
+            var ease = EventToolsUtil.getField("ease")?.value?.value ?? EventToolsUtil.getField("ease")?.value;
+            if(ease == "CLASSIC" || ease == "INSTANT") {
+                EventToolsUtil.hideField("duration", true);
+                EventToolsUtil.hideField("easeDir");
+            } else if (ease == "linear") {
+                EventToolsUtil.hideField("easeDir", !EventToolsUtil.getField("duration")?.hidden);
+                EventToolsUtil.showField("duration", true);
+            } else {
+                EventToolsUtil.showField("easeDir", !EventToolsUtil.getField("duration")?.hidden);
+                EventToolsUtil.showField("duration", true);
+            }
+        }
+    }
+
+    public function onStateChangeBegin(event):Void {
+        super.onStateChangeBegin(event);
+        lastEventKind = "";
+    }
+}

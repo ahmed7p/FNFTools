@@ -1,0 +1,18 @@
+{
+    "title": "Show image event",
+    "description": "An event for showing an image",
+    "author": "Me :) ",
+    "contributors": [
+    {
+      "name": "Ahmed7p39",
+      "role": "Programmer"
+    },
+    {
+      "name": "That0neIdiot",
+      "role": "mod thumbline"
+    }
+    ],
+    "api_version": "0.8.0",
+    "mod_version": "1.0.0",
+    "license": "beep"
+}

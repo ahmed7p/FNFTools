@@ -1,0 +1,733 @@
+import funkin.play.PlayState;
+import funkin.graphics.FunkinSprite;
+import funkin.play.event.SongEvent;
+import funkin.modding.module.Module;
+import funkin.modding.module.ModuleHandler;
+import funkin.util.EventToolsUtil;
+import funkin.Conductor;
+import flixel.util.FlxTimer;
+import funkin.util.FlxTweenUtil;
+import flixel.tweens.FlxEase;
+import flixel.tweens.FlxTween;
+import flixel.util.FlxAxes;
+import funkin.FunkinMemory;
+import Reflect;
+using StringTools;
+
+class ShowImageEvent extends SongEvent {
+
+    public function new() {
+        super("ShowImageEvent");
+    }
+
+    public override function handleEvent(data:SongEventData) {
+     var imageName = (data.getString("image") != null) ? data.getString("image"):"GGMU";
+     var stay = ( data.getFloat("stay") != null) ? data.getInt("stay"):1;
+     var zindex = ( data.getInt("zindex") != null) ? data.getFloat("zindex"):1000;
+     var cam = (data.getString("cam") != null) ? data.getString("cam"):"center";
+     var scale = ( data.getFloat("scale") != null) ? data.getFloat("scale"):0;
+     var scroll = ( data.getFloat("scroll") != null) ? data.getFloat("scroll"):0;
+     var from = (data.getString("from") != null) ? data.getString("from"):"center";
+     var to = (data.getString("to") != null) ? data.getString("to"):"xy";
+     var end = (data.getString("end") != null) ? data.getString("end"):"xy";
+     var easeIn = (data.getString("easein") != null) ? data.getString("easein"):"linear";
+     var easeOut = (data.getString("easeout") != null) ? data.getString("easeout"):"linear";
+     var duration = ( data.getFloat("duration") != null) ? data.getFloat("duration"):1;
+     var durationEnd = ( data.getFloat("durationEnd") != null) ? data.getFloat("durationEnd"):1;
+     var x = ( data.getFloat("x") != null) ? data.getFloat("x"):0;
+     var y = ( data.getFloat("y") != null) ? data.getFloat("y"):0;
+     var xEnd = ( data.getFloat("xEnd") != null) ? data.getFloat("xEnd"):0;
+     var yEnd = ( data.getFloat("yEnd") != null) ? data.getFloat("yEnd"):0;
+     var fade = (data.getString("fade") != null) ? data.getString("fade"):"none";
+     var fadeTime = ( data.getFloat("fadeTime") != null) ? data.getFloat("fadeTime"):0.5;
+     var shake = (data.getString("shake") != null) ? data.getString("shake"):"none";
+     var shakeAxes = (data.getString("shakeAxes") != null) ? data.getString("shakeAxes"):"x";
+     var shakeTime = ( data.getFloat("shakeTime") != null) ? data.getFloat("shakeTime"):0.5;
+     var shakeIntensity = ( data.getFloat("shakeIntensity") != null) ? data.getFloat("shakeIntensity"):1.0;
+     ModuleHandler.getModule("ShowImageModule").showImage({
+        imageName: imageName,
+        stay: stay,
+        zindex: zindex,
+        cam: cam,
+        scroll: scroll,
+        scale: scale,
+        from: from,
+        to: to,
+        end: end,
+        easeIn: easeIn,
+        easeOut: easeOut,
+        duration: duration,
+        durationEnd: durationEnd,
+        x: x,
+        y: y,
+        xEnd: xEnd,
+        yEnd: yEnd,
+        fade: fade,
+        fadeTime: fadeTime,
+        shake: shake,
+        shakeAxes: shakeAxes,
+        shakeIntensity: shakeIntensity,
+        shakeTime: shakeTime,
+      });
+    }
+
+    public override function getTitle() {
+        return "Show Image Event";
+    }
+
+    public override function getEventSchema() {
+      return [
+        {
+            name: "basic_image_settings_frame",
+            title: "Basic Image Settings",
+            type: "frame",
+            collapsible: true,
+            children: [
+                {
+                    name: "image",
+                    title: "Image Path/Name",
+                    type: "string",
+                    defaultValue: "Showimage/GGMU"
+                },
+                {
+                    name: "stay",
+                    title: "Stay Time",
+                    type: "float",
+                    defaultValue: 1.0,
+                    min: 0.1,
+                    step: 0.5,
+                    units: "seconds"
+                },
+                {
+                    name: "zindex",
+                    title: "ZIndex",
+                    type: "integer",
+                    defaultValue: 1000,
+                    step: 100
+                },
+                {
+                    name: "cam",
+                    title: "Camera",
+                    type: "enum",
+                    defaultValue: "hud",
+                    keys: [
+                        "Hud" => "hud",
+                        "Game" => "game",
+                        "Stage" => "stage"
+                    ]
+                },
+                {
+                    name: "scale",
+                    title: "Scale",
+                    type: "float",
+                    defaultValue: 1.0,
+                    min: 0.1
+                },
+                {
+                    name: "scroll",
+                    title: "Scroll",
+                    type: "float",
+                    defaultValue: 1.0,
+                    min: 0.0
+                }
+            ]
+        },
+        {
+            name: "entry_movement_frame",
+            title: "Entry Movement (Start to Final)",
+            type: "frame",
+            collapsible: true,
+            children: [
+                {
+                    name: "from",
+                    title: "Starting Position",
+                    type: "enum",
+                    defaultValue: "center",
+                    keys: [
+                        "Up" => "up",
+                        "Dowm" => "down",
+                        "Left" => "left",
+                        "Right" => "right",
+                        "Center" => "center"
+                    ]
+                },
+                {
+                    name: "to",
+                    title: "Final Position",
+                    type: "enum",
+                    defaultValue: "center",
+                    keys: [
+                        "Up" => "up",
+                        "Up + XY" => "upxy",
+                        "Dowm" => "down",
+                        "Down + XY" => "downxy",
+                        "Left" => "left",
+                        "Left + XY" => "leftxy",
+                        "Right" => "right",
+                        "Right + XY" => "rightxy",
+                        "Center" => "center",
+                        "Center + XY" => "centerxy",
+                        "XY" => "xy"
+                    ]
+                },
+                {
+                    name: "duration",
+                    title: "Duration (Start)",
+                    type: "float",
+                    defaultValue: 10.0,
+                    min: 0.0,
+                    step: 0.5,
+                    units: "steps"
+                },
+                {
+                    name: "x",
+                    title: "X (Start)",
+                    type: "float",
+                    defaultValue: 0.0,
+                    step: 10
+                },
+                {
+                    name: "y",
+                    title: "Y (Start)",
+                    type: "float",
+                    defaultValue: 0.0,
+                    step: 10
+                },
+                {
+                    name: "easein",
+                    title: "Easing Type(Start)",
+                    type: "enum",
+                    defaultValue: "INSTANT",
+                    keys: [
+                        'Linear' => 'linear',
+                        'Sine In' => 'sineIn',
+                        'Sine Out' => 'sineOut',
+                        'Sine In/Out' => 'sineInOut',
+                        'Quad In' => 'quadIn',
+                        'Quad Out' => 'quadOut',
+                        'Quad In/Out' => 'quadInOut',
+                        'Cube In' => 'cubeIn',
+                        'Cube Out' => 'cubeOut',
+                        'Cube In/Out' => 'cubeInOut',
+                        'Quart In' => 'quartIn',
+                        'Quart Out' => 'quartOut',
+                        'Quart In/Out' => 'quartInOut',
+                        'Quint In' => 'quintIn',
+                        'Quint Out' => 'quintOut',
+                        'Quint In/Out' => 'quintInOut',
+                        'Expo In' => 'expoIn',
+                        'Expo Out' => 'expoOut',
+                        'Expo In/Out' => 'expoInOut',
+                        'Smooth Step In' => 'smoothStepIn',
+                        'Smooth Step Out' => 'smoothStepOut',
+                        'Smooth Step In/Out' => 'smoothStepInOut',
+                        'Smoother Step In' => 'smootherStepIn',
+                        'Smoother Step Out' => 'smootherStepOut',
+                        'Smoother Step In/Out' => 'smootherStepInOut',
+                        'Elastic In' => 'elasticIn',
+                        'Elastic Out' => 'elasticOut',
+                        'Elastic In/Out' => 'elasticInOut',
+                        'Back In' => 'backIn',
+                        'Back Out' => 'backOut',
+                        'Back In/Out' => 'backInOut',
+                        'Bounce In' => 'bounceIn',
+                        'Bounce Out' => 'bounceOut',
+                        'Bounce In/Out' => 'bounceInOut',
+                        'Circ In' => 'circIn',
+                        'Circ Out' => 'circOut',
+                        'Circ In/Out' => 'circInOut',
+                        'Instant' => 'INSTANT'
+                    ]
+                }
+            ]
+        },
+        {
+            name: "exit_movement_frame",
+            title: "Exit Movement (Final to End)",
+            type: "frame",
+            collapsible: true,
+            children: [
+                {
+                    name: "end",
+                    title: "End Position",
+                    type: "enum",
+                    defaultValue: "center",
+                    keys: [
+                        "Up" => "up",
+                        "Up + XY" => "upxy",
+                        "Dowm" => "down",
+                        "Down + XY" => "downxy",
+                        "Left" => "left",
+                        "Left + XY" => "leftxy",
+                        "Right" => "right",
+                        "Right + XY" => "rightxy",
+                        "Center" => "center",
+                        "Center + XY" => "centerxy",
+                        "XY" => "xy"
+                    ]
+                },
+                {
+                    name: "easeout",
+                    title: "Easing Type(End)",
+                    type: "enum",
+                    defaultValue: "INSTANT",
+                    keys: [
+                        'Linear' => 'linear',
+                        'Sine In' => 'sineIn',
+                        'Sine Out' => 'sineOut',
+                        'Sine In/Out' => 'sineInOut',
+                        'Quad In' => 'quadIn',
+                        'Quad Out' => 'quadOut',
+                        'Quad In/Out' => 'quadInOut',
+                        'Cube In' => 'cubeIn',
+                        'Cube Out' => 'cubeOut',
+                        'Cube In/Out' => 'cubeInOut',
+                        'Quart In' => 'quartIn',
+                        'Quart Out' => 'quartOut',
+                        'Quart In/Out' => 'quartInOut',
+                        'Quint In' => 'quintIn',
+                        'Quint Out' => 'quintOut',
+                        'Quint In/Out' => 'quintInOut',
+                        'Expo In' => 'expoIn',
+                        'Expo Out' => 'expoOut',
+                        'Expo In/Out' => 'expoInOut',
+                        'Smooth Step In' => 'smoothStepIn',
+                        'Smooth Step Out' => 'smoothStepOut',
+                        'Smooth Step In/Out' => 'smoothStepInOut',
+                        'Smoother Step In' => 'smootherStepIn',
+                        'Smoother Step Out' => 'smootherStepOut',
+                        'Smoother Step In/Out' => 'smootherStepInOut',
+                        'Elastic In' => 'elasticIn',
+                        'Elastic Out' => 'elasticOut',
+                        'Elastic In/Out' => 'elasticInOut',
+                        'Back In' => 'backIn',
+                        'Back Out' => 'backOut',
+                        'Back In/Out' => 'backInOut',
+                        'Bounce In' => 'bounceIn',
+                        'Bounce Out' => 'bounceOut',
+                        'Bounce In/Out' => 'bounceInOut',
+                        'Circ In' => 'circIn',
+                        'Circ Out' => 'circOut',
+                        'Circ In/Out' => 'circInOut',
+                        'Instant' => 'INSTANT'
+                    ]
+                },
+                {
+                    name: "durationEnd",
+                    title: "Duration (End)",
+                    type: "float",
+                    defaultValue: 10.0,
+                    min: 0.0,
+                    step: 0.5,
+                    units: "steps"
+                },
+                {
+                    name: "xEnd",
+                    title: "X (End)",
+                    type: "float",
+                    defaultValue: 0.0,
+                    step: 10
+                },
+                {
+                    name: "yEnd",
+                    title: "Y (End)",
+                    type: "float",
+                    defaultValue: 0.0,
+                    step: 10
+                }
+            ]
+        },
+        {
+            name: "visual_effects_frame",
+            title: "Visual Effects",
+            type: "frame",
+            collapsible: true,
+            children: [
+                {
+                    name: "fade",
+                    title: "Fade Type",
+                    type: "enum",
+                    defaultValue: "none",
+                    keys: [
+                        "Fade In" => "in",
+                        "Fade Out" => "out",
+                        "Fade InOut" => "inout",
+                        "No Fade" => "none"
+                    ]
+                },
+                {
+                    name: "fadeTime",
+                    title: "Fade Time",
+                    type: "float",
+                    defaultValue: 0.5,
+                    min: 0.1,
+                    units: "seconds"
+                },
+                {
+                    name: "shake",
+                    title: "Shake Type",
+                    type: "enum",
+                    defaultValue: "none",
+                    keys: [
+                        "Shake In" => "in",
+                        "Shake Out" => "out",
+                        "Shake InOut" => "inout",
+                        "No Shake" => "none"
+                    ]
+                },
+                {
+                    name: "shakeIntensity",
+                    title: "Shake Intensity",
+                    type: "float",
+                    defaultValue: 0.2,
+                    min: 0.01,
+                    max: 2.0,
+                    step: 0.01
+                },
+                {
+                    name: "shakeAxes",
+                    title: "Shake Axes",
+                    type: "enum",
+                    defaultValue: "x",
+                    keys: [
+                        "X" => "x",
+                        "Y" => "y",
+                        "XY" => "xy"
+                    ]
+                },
+                {
+                    name: "shakeTime",
+                    title: "Shake Time",
+                    type: "float",
+                    defaultValue: 0.5,
+                    min: 0.1,
+                    units: "seconds"
+                }
+            ]
+        }
+    ];
+  }
+}
+
+class ShowImageModule extends Module
+{
+      var activeImages:Array<FunkinSprite> = [];
+      var activeTimers:Array<FlxTimer> = [];
+
+      public function new()
+      {
+          super('ShowImageModule');
+      }
+
+      public override function onSongLoaded(event)
+      {
+          super.onSongLoaded(event);
+          activeImages = [];
+          activeTimers = [];
+          for (theEvent in event.events)  
+          {  
+              if (theEvent.eventKind == "ShowImageEvent")  
+              {  
+                  FunkinMemory.cacheTexture(Paths.image(theEvent.getString('image')));
+                  trace('Cached Image:${theEvent.getString('image')}.png');
+              }
+          } 
+      }
+
+      public function showImage(options:ShowImageOptions)
+      {
+        var img = new FunkinSprite(0, 0, Paths.image(options.imageName));
+        img.zIndex = options.zindex;
+        img.cameras = (options.cam == "hud") ? [PlayState.instance.camHUD] : [PlayState.instance.camGame];
+        img.scrollFactor.set(options.scroll, options.scroll);
+        img.scale.set(options.scale, options.scale);
+        activeImages.push(img);
+
+        var startPos = getPos(img, options.from, options.x, options.y);
+        img.x = startPos.x;
+        img.y = startPos.y;
+
+        if (options.cam == "stage" && PlayState.instance.currentStage != null) {
+            PlayState.instance.currentStage.add(img);
+            PlayState.instance.currentStage.refresh();
+        } else {
+            PlayState.instance.add(img);
+            PlayState.instance.refresh();
+        }
+
+        if (options.fade == "in" || options.fade == "inout") {
+            img.alpha = 0;
+            FlxTween.tween(img, {alpha: 1}, options.fadeTime);
+        }
+
+        if (options.shake == "in" || options.shake == "inout") {
+            FlxTween.shake(img, options.shakeIntensity, options.shakeTime, FlxAxes.fromString(options.shakeAxes));
+        }
+
+        var toPos = getPos(img, options.to, options.x, options.y);
+        if (options.easeIn == 'INSTANT') {
+            img.x = toPos.x;
+            img.y = toPos.y;
+        } else {
+            var durIn = Conductor.instance.stepLengthMs * options.duration / 1000;
+            var easeInFunc = Reflect.field(FlxEase, options.easeIn);
+            if (easeInFunc != null) FlxTween.tween(img, {x: toPos.x, y: toPos.y}, durIn, {ease: easeInFunc});
+        }
+
+        var tmr = new FlxTimer();
+        activeTimers.push(tmr);
+
+        tmr.start(options.stay, (t) -> {
+            if (options.shake == "out" || options.shake == "inout") 
+                FlxTween.shake(img, options.shakeIntensity, options.shakeTime, FlxAxes.fromString(options.shakeAxes),{onComplete: function(twn:FlxTween) { 
+                if (options.easeOut == "INSTANT") localDestroy(img, tmr);
+                }});
+
+            if (options.fade == "out" || options.fade == "inout") 
+                FlxTween.tween(img, {alpha: 0}, options.fadeTime, {onComplete: function(twn:FlxTween) { 
+                if (options.easeOut == "INSTANT") localDestroy(img, tmr);
+                }});
+
+            if (options.easeOut == 'INSTANT') {
+                if ((options.fade == "none" || options.fade == "in") && (options.shake == "in" || options.shake == "none")) 
+                localDestroy(img, tmr);
+            } else {
+                var durOut = Conductor.instance.stepLengthMs * options.durationEnd / 1000;
+                var easeOutFunc = Reflect.field(FlxEase, options.easeOut);
+                var endPos = getPos(img, options.end, options.xEnd, options.yEnd);
+
+                if (easeOutFunc != null)
+                    FlxTween.tween(img, {x: endPos.x, y: endPos.y}, durOut, {ease: easeOutFunc, onComplete: (_) -> localDestroy(img, tmr)});
+            }
+        });
+    }
+
+    function localDestroy(?img:FunkinSprite, ?tmr:FlxTimer)
+    {
+        if (img != null) {
+            activeImages.remove(img);
+            img.destroy();
+        }
+        if (tmr != null) {
+            activeTimers.remove(tmr);
+            tmr.destroy();
+        }
+    }
+
+    private function getPos(spr:FunkinSprite, type:String, targetX:Float, targetY:Float):{x:Float, y:Float} 
+    {
+        var res = {x: targetX, y: targetY};
+        var w = spr.width;
+        var h = spr.height;
+        switch(type) {
+            case "up":       res.x = (FlxG.width - w) / 2; res.y = -FlxG.height;
+            case "upxy":     res.x = (FlxG.width - w) / 2 + targetX; res.y = -FlxG.height + targetY;
+            case "down":     res.x = (FlxG.width - w) / 2; res.y = FlxG.height;
+            case "downxy":   res.x = (FlxG.width - w) / 2 + targetX; res.y = FlxG.height + targetY;
+            case "left":     res.x = -FlxG.width; res.y = (FlxG.height - h) / 2;
+            case "leftxy":   res.x = -FlxG.width + targetX; res.y = (FlxG.height - h) / 2 + targetY;
+            case "right":    res.x = FlxG.width; res.y = (FlxG.height - h) / 2;
+            case "rightxy":  res.x = FlxG.width + targetX; res.y = (FlxG.height - h) / 2 + targetY;
+            case "center":   res.x = (FlxG.width - w) / 2; res.y = (FlxG.height - h) / 2;
+            case "centerxy": res.x = (FlxG.width - w) / 2 + targetX; res.y = (FlxG.height - h) / 2 + targetY;
+            case "xy":       res.x = targetX; res.y = targetY;
+            default:         res.x = targetX; res.y = targetY;
+        }
+        return res;
+    }
+
+    public override function onSongRetry(event)
+    {
+      super.onSongRetry(event);
+      for (img in activeImages) if (img != null) localDestroy(img);
+      for (tmr in activeTimers) if (tmr != null) localDestroy(null,tmr);
+    }
+
+    public override function onPause(event)
+    {
+        super.onPause(event);
+        for (img in activeImages) if (img != null) FlxTweenUtil.pauseTweensOf(img);
+        for (tmr in activeTimers) if (tmr != null) tmr.active = false;
+    }
+
+    public override function onResume(event)
+    {
+        super.onResume(event);
+        for (img in activeImages) if (img != null) FlxTweenUtil.resumeTweensOf(img);
+        for (tmr in activeTimers) if (tmr != null) tmr.active = true;
+    }
+
+    var lastEventKind:String;
+    public override function onUpdate(event)
+    {
+        super.onUpdate(event);
+        if(EventToolsUtil.getDataBox() == null) return;
+        if(lastEventKind != FlxG.state.eventKindToPlace)
+        {
+          lastEventKind = FlxG.state.eventKindToPlace;
+          if(lastEventKind != "ShowImageEvent") return;
+          addTooltips();
+          for(frame in ["entry_movement_frame", "exit_movement_frame", "visual_effects_frame"]) EventToolsUtil.getField(frame)?.collapsed = true;
+          var shake = EventToolsUtil.getField("shake")?.value?.value ?? EventToolsUtil.getField("ease")?.value;
+          var fade = EventToolsUtil.getField("fade")?.value?.value ?? EventToolsUtil.getField("ease")?.value;
+          var to = EventToolsUtil.getField("to")?.value?.value ?? EventToolsUtil.getField("to")?.value;
+          var easeIn = EventToolsUtil.getField("easein")?.value?.value ?? EventToolsUtil.getField("easein")?.value;
+          var end = EventToolsUtil.getField("end")?.value?.value ?? EventToolsUtil.getField("end")?.value;
+          var easeOut = EventToolsUtil.getField("easeout")?.value?.value ?? EventToolsUtil.getField("easeout")?.value;
+          
+          if(!to?.endsWith("xy"))
+          {
+            EventToolsUtil.hideField("x");
+            EventToolsUtil.hideField("y");
+          }
+
+          if(easeIn == "INSTANT")
+          {
+            EventToolsUtil.hideField("duration");
+          }
+
+          if(!end?.endsWith("xy"))
+          {
+            EventToolsUtil.hideField("xEnd");
+            EventToolsUtil.hideField("yEnd");
+          }
+
+          if(easeOut == "INSTANT")
+          {
+            EventToolsUtil.hideField("durationEnd");
+          }
+
+          if(fade == "none")
+          {
+            EventToolsUtil.hideField("fadeTime");
+          }
+
+          if(shake == "none")
+          {
+            for(field in ["shakeIntensity", "shakeAxes", "shakeTime"]) EventToolsUtil.hideField(field);
+          }
+        }
+
+        if(lastEventKind == "ShowImageEvent") {
+          var shake = EventToolsUtil.getField("shake")?.value?.value ?? EventToolsUtil.getField("ease")?.value;
+          var fade = EventToolsUtil.getField("fade")?.value?.value ?? EventToolsUtil.getField("ease")?.value;
+          var to = EventToolsUtil.getField("to")?.value?.value ?? EventToolsUtil.getField("to")?.value;
+          var easeIn = EventToolsUtil.getField("easein")?.value?.value ?? EventToolsUtil.getField("easein")?.value;
+          var end = EventToolsUtil.getField("end")?.value?.value ?? EventToolsUtil.getField("end")?.value;
+          var easeOut = EventToolsUtil.getField("easeout")?.value?.value ?? EventToolsUtil.getField("easeout")?.value;
+
+          if(!to?.endsWith("xy"))
+          {
+            EventToolsUtil.hideField("x", true);
+            EventToolsUtil.hideField("y");
+          }
+          else
+          {
+            EventToolsUtil.showField("x", true);
+            EventToolsUtil.showField("y");
+          }
+
+          if(easeIn == "INSTANT")
+          {
+            EventToolsUtil.hideField("duration", true);
+          }
+          else
+          {
+            EventToolsUtil.showField("duration", true);
+          }
+
+          if(!end?.endsWith("xy"))
+          {
+            EventToolsUtil.hideField("xEnd", true);
+            EventToolsUtil.hideField("yEnd");
+          }
+          else
+          {
+            EventToolsUtil.showField("xEnd", true);
+            EventToolsUtil.showField("yEnd");
+          }
+
+          if(easeOut == "INSTANT")
+          {
+            EventToolsUtil.hideField("durationEnd", true);
+          }
+          else
+          {
+            EventToolsUtil.showField("durationEnd", true);
+          }
+
+          if(fade == "none")
+          {
+            EventToolsUtil.hideField("fadeTime", true);
+          }
+          else
+          {
+            EventToolsUtil.showField("fadeTime", true);
+          }
+
+          if(shake == "none")
+          {
+            for(field in ["shakeIntensity", "shakeAxes", "shakeTime"]) EventToolsUtil.hideField(field, !EventToolsUtil.getField("shakeIntensity")?.hidden);
+          }
+          else
+          {
+            for(field in ["shakeIntensity", "shakeAxes", "shakeTime"]) EventToolsUtil.showField(field, !EventToolsUtil.getField("shakeIntensity")?.hidden);
+          }
+        }
+    }
+
+    private function addTooltips()
+    {
+        EventToolsUtil.addTooltip("image", "The path and file name of the image asset to load.");
+        EventToolsUtil.addTooltip("stay", "How many seconds the image remains fully visible on screen.");
+        EventToolsUtil.addTooltip("zindex", "The sorting layer order (higher numbers render on top).");
+        EventToolsUtil.addTooltip("cam", "The camera layer to display the image on.");
+        EventToolsUtil.addTooltip("scale", "The scale multiplier of the image asset.");
+        EventToolsUtil.addTooltip("scroll", "How much the image position shifts along with the camera movement.");
+        EventToolsUtil.addTooltip("from", "The starting position where the image spawns.");
+        EventToolsUtil.addTooltip("to", "The destination where the image rests during its stay time.");
+        EventToolsUtil.addTooltip("duration", "The animation travel time from Start to Final position (measured in steps).");
+        EventToolsUtil.addTooltip("end", "The target position where the image moves when exiting.");
+        EventToolsUtil.addTooltip("durationEnd", "The animation travel time from Final to End position (measured in steps).");
+        EventToolsUtil.addTooltip("fade", "Apply an opacity fade style over the image transition.");
+        EventToolsUtil.addTooltip("fadeTime", "The duration of the fade effect in seconds.");
+        EventToolsUtil.addTooltip("shake", "Apply a vibration/shake effect directly to the image asset.");
+        EventToolsUtil.addTooltip("shakeIntensity", "The pixel offset intensity or roughness of the image vibration.");
+        EventToolsUtil.addTooltip("shakeAxes", "Select the direction for the image to shake (Horizontal, Vertical, or Both).");
+        EventToolsUtil.addTooltip("shakeTime", "The total duration of the image shake effect in seconds.");
+    }
+
+    public override function onStateChangeBegin(event)
+    {
+        super.onStateChangeBegin(event);
+        lastEventKind = null;
+        activeImages = [];
+        activeTimers = [];
+    }
+}
+
+typedef ShowImageOptions = {
+  imageName:String,
+  stay:Float,
+  zindex:Int,
+  cam:String,
+  scroll:Float,
+  scale:Float,
+  from:String,
+  to:String,
+  end:String,
+  easeIn:String,
+  easeOut:String,
+  duration:Float,
+  durationEnd:Float,
+  x:Float,
+  y:Float,
+  xEnd:Float,
+  yEnd:Float,
+  fade:String,
+  fadeTime:Float,
+  shake:String,
+  shakeAxes:String,
+  shakeIntensity:Float,
+  shakeTime:Float,
+}
